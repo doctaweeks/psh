@@ -1,11 +1,46 @@
 #!/bin/sh
 
+runssh_background()
+{
+	host=$1
+	shift
+	ssh -n $host $@ |sed "s/^/$host: /"&
+}
+
 if [ $# -lt 2 ]; then
 	echo "Usage: $0 <host(s)> <command>"
 	echo "host list should be comma separated"
 	exit 1
 fi
 
-hosts=`echo $1 | sed 's/,/ /g'`
-shift
-pssh -t 0 -P -H "$hosts" "$@"
+which pssh >/dev/null 2>&1
+if [ $? -eq 0 ]; then
+	have_pssh=true
+	pssh_opts="-t 0 -P"
+fi
+
+if [ -f $1 ]; then
+	hostfile=$1
+	shift
+	if [ $have_pssh ]; then
+		pssh $pssh_opts -h $hostfile "$@"
+	else
+		while read sys; do
+			runssh_background $sys "$@"
+		done < $hostfile
+		wait
+	fi
+else
+	if [ $have_pssh ]; then
+		hosts=$(echo $1 | sed 's/,/ /g')
+		shift
+		pssh $pssh_opts -H "$hosts" "$@"
+	else
+		hosts=$1
+		shift
+		for host in $(echo $hosts | tr "," "\n"); do
+			runssh_background $host "$@"
+		done
+		wait
+	fi
+fi
