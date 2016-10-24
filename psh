@@ -1,0 +1,11 @@
+#!/bin/sh
+
+if [ $# -lt 2 ]; then
+	echo "Usage: $0 <host(s)> <command>"
+	echo "host list should be comma separated"
+	exit 1
+fi
+
+hosts=`echo $1 | sed 's/,/ /g'`
+shift
+pssh -t 0 -P -H "$hosts" "$@"
